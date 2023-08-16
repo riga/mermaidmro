@@ -1,0 +1,14 @@
+*.sublime-project
+*.sublime-workspace
+*.pyc
+*.log
+*.DS_Store
+*.pkl
+*.egg-info
+dist
+MANIFEST
+build
+docs/_build
+.ipynb_checkpoints
+.coverage
+coverage*.xml
