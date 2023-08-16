@@ -10,6 +10,7 @@ __all__ = [
     "encode_text",
     "encode_json",
     "download_graph",
+    "get_default_name_func",
 ]
 
 import os
@@ -41,10 +42,11 @@ URL_STATIC_JSON = "https://mermaid.ink/img/pako:{}?type={}"
 URL_EDIT_JSON = "https://mermaid.live/edit#pako:{}"
 
 #: Relation between two classes including a depth value with respect to the requested root class.
+#: (namedtuple).
 Relation = collections.namedtuple("Relation", ["cls", "base_cls", "root_depth"])
 
-#: TODO.
-Style = collections.namedtuple("Style", ["name", "cls", "attributes"])
+#: Container object with attributes to define css styles for one or multiple classes (namedtuple).
+Style = collections.namedtuple("Style", ["name", "cls", "css"])
 
 
 def get_relations(
@@ -52,11 +54,13 @@ def get_relations(
     max_depth: int = -1,
 ) -> list[Relation]:
     """
-    Resolve parameter values *params* from command line and propagate them to this set of
-    parameters.
+    Recursively extracts base classes of a *root_cls* down to a maximum depth *max_depth* and
+    returns them in a list of :py:class:`Relation` objects. When *max_depth* is negative, the lookup
+    is fully recursive, possibly down to ``object``.
 
-    :param params: Parameters provided at command line level.
-    :return: Updated list of parameter values.
+    :param root_cls: The root class to use.
+    :param max_depth: Maximum recursion depth.
+    :return: The list of found :py:class:`Relation` objects.
     """
     # stop early
     if max_depth == 0:
@@ -91,6 +95,15 @@ def get_relations(
 def get_default_name_func(
     skip_modules: list[str] | set[str] | None = None,
 ) -> Callable[[type], str]:
+    """
+    Returns a function that takes an arbitrary class and extracts its name representation, usually
+    in the format ``"module_name.class_name"``. *skip_modules* can be a sequence of modules names
+    of patterns matching module names that are not preprended. Please note that ``builtins`` and
+    ``__main__`` are always skipped.
+
+    :param skip_modules: Optional squence of module names (or patterns) to skip.
+    :return: Function that takes a class and returns the name for visualization.
+    """
     # default list of module names to skip
     skip_modules = set(skip_modules or [])
 
@@ -117,7 +130,33 @@ def get_style_text(
     join_lines: bool = True,
 ) -> str | list[str]:
     """
-    TODO.
+    Creates the string representation of style statements for mermaid graphs consisting of style
+    definitions followed by assignments to graph nodes. *styles* should be a sequence of
+    :py:class:`Style` objects (or tuples that can be interpreted as such) containing the name of the
+    style, the name(s) of the class(es) it is applied to, and one or multiple css-like strings, e.g.
+    ``"stroke-width: 3px"``. Example:
+
+    .. code-block:: python
+
+        get_style_text([
+            Style(name="Bold", cls=["ClassA", "ClassB"], css=["stroke-width: 3px"]),
+            Style(name="Colored", cls="ClassA", css=["stroke-width: 3px", "stroke: #83b"]),
+        ])
+
+        #    classDef Bold stroke-width: 3px
+        #    classDef Colored stroke-width: 3px, stroke: #83b
+        #
+        #    class ClassA Bold
+        #    class ClassB Bold
+        #    class ClassA Colored
+
+    :param styles: Sequence of :py:class:`Style` objects or tuples that can be interpreted as such.
+    :param indentation: The indentation of lines.
+    :param name_func: A function to extract the string representation of a class, defaulting to the
+        return value of :py:func:`get_default_name_func` passing *skip_modules*.
+    :param skip_modules: Sequence of module names (or patterns) to skip when no *name_func* is set.
+    :param join_lines: Whether generated lines should be joined to a string.
+    :return: The style as a text representation or as single lines in a list.
     """
     # default name_func
     if name_func is None:
@@ -133,9 +172,9 @@ def get_style_text(
     lines = []
     for style in styles:
         attr_str = (
-            style.attributes
-            if isinstance(style.attributes, str)
-            else ", ".join(style.attributes)
+            style.css
+            if isinstance(style.css, str)
+            else ", ".join(style.css)
         )
         lines.append(f"{indentation}classDef {style.name} {attr_str}")
 
@@ -155,17 +194,49 @@ def get_style_text(
 def get_mermaid_text(
     root_cls: type,
     max_depth: int = -1,
+    styles: list[Style | tuple] | None = None,
     graph_type: str = "TD",
     arrow_type: str = "-->",
     indentation: str = "    ",
-    styles: list[Style | tuple] | None = None,
     skip_func: Callable[[type, Callable], bool] | None = None,
     name_func: Callable[[type], str] | None = None,
     skip_modules: list[str] | set[str] | None = None,
     join_lines: bool = True,
 ) -> str | list[str]:
     """
-    TODO.
+    Creates a text representation of the inheritance graph for a *root_cls*, down to a maximum
+    recursion depth *max_depth*. When *styles* is given, the representation contains style
+    statements generated via :py:func:`get_style_text`. The type of the graph and style of arrows
+    can be controlled with *graph_type* and *arrow_type*. Example:
+
+    .. code-block:: python
+
+        class A(object): pass
+        class B(object): pass
+        class C(A): pass
+        class D(A, B): pass
+
+        get_mermaid_text(D)
+
+        # graph TD
+        #     A --> D
+        #     B --> D
+        #     object --> A
+        #     object --> B
+
+    :param root_cls: The root class to use.
+    :param max_depth: Maximum recursion depth for the lookup in :py:func:`get_relations`.
+    :param styles: Sequence of :py:class:`Style` objects or tuples that can be interpreted as such.
+    :param graph_type: The mermaid graph type to use, e.g. ``"TD"`` or ``"LR"``.
+    :param arrow_type: The default arrow type to use between classes, e.g. ``"-->"``.
+    :param indentation: The indentation of lines.
+    :param skip_func: A function to decide whether a specific base class should be skipped given
+        the class itself and the *name_func* as arguments.
+    :param name_func: A function to extract the string representation of a class, defaulting to the
+        return value of :py:func:`get_default_name_func` passing *skip_modules*.
+    :param skip_modules: Sequence of module names (or patterns) to skip when no *name_func* is set.
+    :param join_lines: Whether generated lines should be joined to a string.
+    :return: The style as a text representation or as single lines in a list.
     """
     # default name_func
     if name_func is None:
@@ -202,7 +273,11 @@ def encode_text(
     mermaid_text: str,
 ) -> str:
     """
-    TODO.
+    Returns a base64 encoded variant of a mermaid graph given in *mermaid_text*, that is usually
+    used in static urls of the mermaidjs service.
+
+    :param mermaid_text: The graph as a string representation.
+    :return: The base64 encoded representation of the text.
     """
     return base64.urlsafe_b64encode(mermaid_text.encode("utf-8")).decode("utf-8")
 
@@ -211,8 +286,26 @@ def encode_json(
     mermaid_text: str,
     theme: str | None = "default",
 ) -> str:
-    """
-    TODO.
+    r"""
+    Returns a base64 encoded and compressed variant of a mermaid graph given in *mermaid_text* and
+    additional configuration options such as *theme*, that is usually used in urls of the mermaidjs
+    live editing service.
+
+    The structured data that is compressed has the format
+
+    .. code-block:: json
+
+        {
+            "code": "graph TD\n....",
+            "mermaid": "{\"theme\": ...}"
+        }
+
+    as expected by mermaidjs.
+
+    :param mermaid_text: The graph as a string representation.
+    :param theme: Name of the theme to use.
+    :return: The base64 encoded and compressed representation of the structured data containing
+        the graph and configuration options.
     """
     data = json.dumps({
         "code": mermaid_text,
@@ -227,7 +320,13 @@ def download_graph(
     file_type: str = "jpg",
 ) -> str:
     """
-    TODO.
+    Downloads a mermaid graph represented by *mermaid_text* from the mermaidjs service to a *path*
+    in a specific *file_type*. Missing intermediate directories are created first.
+
+    :param mermaid_text: The graph as a string representation.
+    :param path: The path where the downloaded file should be saved.
+    :param file_type: The file type to write, usually either ``"png"`` or ``"jpg"``.
+    :return: The absolute, normalized and expanded path.
     """
     import requests
 
@@ -272,7 +371,15 @@ def main(
     test: bool = False,
 ) -> None | list[str] | str:
     """
-    TODO.
+    Main entry hook of the mermaidmro cli.
+
+    The arguments to parse can be configured via *cli_args* and default to ``sys.argv[1:]``. When
+    *test* is *True*, no command is executed by created texts and / or commands are returned instead
+    for testing purposes.
+
+    :param cli_args: Custom cli arguments.
+    :param test: Whether texts and or commands are returned for testing purposes.
+    :return: Texts or commands if *test* is *True* and *None* otherwise.
     """
     import subprocess
     import tempfile

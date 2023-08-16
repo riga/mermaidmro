@@ -191,6 +191,15 @@ class TestCore(unittest.TestCase):
     object --> B""",
         )
 
+        # skip func
+        self.assertEqual(
+            mm.get_mermaid_text(D, skip_func=(lambda cls, name_func: cls == B)),
+            """graph TD
+    tests.test_all.A --> tests.test_all.D
+    object --> tests.test_all.A
+    object --> tests.test_all.B""",
+        )
+
         # include styles
         self.assertEqual(
             mm.get_mermaid_text(D, styles=[("Foo", "tests.test_all.D", "stroke: #83b")]),

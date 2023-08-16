@@ -43,7 +43,6 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosectionlabel",
     "sphinx_autodoc_typehints",
-    "autodocsumm",
     "myst_parser",
     "sphinx_lfs_content",
 ]
