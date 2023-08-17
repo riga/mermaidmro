@@ -1,22 +1,26 @@
 mermaidmro
 ==========
 
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- marker-before-badges -->
+   :end-before: <!-- marker-after-badges -->
+
+
 .. automodule:: mermaidmro
 
-.. centered:: This page contains only API docs. For more info, visit `mermaidmro on GitHub <https://github.com/riga/mermaidmro>`__.
-
-
-CLI Examples
-^^^^^^^^^^^^
 
 .. include:: ../README.md
    :parser: myst_parser.sphinx_
-   :start-after: <!-- marker-before-examples -->
-   :end-before: <!-- marker-after-examples -->
+   :start-after: <!-- marker-before-content -->
+   :end-before: <!-- marker-after-content -->
 
+
+API
+^^^
 
 Functions
-^^^^^^^^^
+---------
 
 .. autofunction:: get_mermaid_text
 
@@ -34,7 +38,7 @@ Functions
 
 
 Classes
-^^^^^^^
+-------
 
 .. autoclass:: Relation
 

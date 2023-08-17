@@ -30,11 +30,13 @@ add_module_names = False
 html_title = "{} v{}".format(project, version)
 html_theme = "sphinx_book_theme"
 html_theme_options = {
-    "show_navbar_depth": 2,
     "repository_url": "https://github.com/riga/mermaidmro",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": True,
+}
+html_sidebars = {
+    "**": [],
 }
 
 extensions = [

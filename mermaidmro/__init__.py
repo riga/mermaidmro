@@ -20,7 +20,14 @@ import json
 import importlib
 import fnmatch
 import collections
+import urllib.request
 from typing import Callable
+
+try:
+    import requests
+    HAS_REQUESTS = True
+except ModuleNotFoundError:
+    HAS_REQUESTS = False
 
 # package infos
 from mermaidmro.__version__ import (
@@ -325,11 +332,9 @@ def download_graph(
 
     :param mermaid_text: The graph as a string representation.
     :param path: The path where the downloaded file should be saved.
-    :param file_type: The file type to write, usually either ``"png"`` or ``"jpg"``.
+    :param file_type: The file type to write, usually ``"jpg"`` or ``"png"``.
     :return: The absolute, normalized and expanded path.
     """
-    import requests
-
     # normalize path
     path = os.path.normpath(os.path.expandvars(os.path.expanduser(path)))
 
@@ -339,10 +344,16 @@ def download_graph(
         os.makedirs(parent)
 
     # download and write
-    with open(path, "wb") as f:
-        url = URL_STATIC_JSON.format(encode_json(mermaid_text), file_type)
-        r = requests.get(url, allow_redirects=True)
-        f.write(r.content)
+    url = URL_STATIC_JSON.format(encode_json(mermaid_text), file_type)
+    if HAS_REQUESTS:
+        with open(path, "wb") as f:
+            r = requests.get(url, allow_redirects=True)
+            f.write(r.content)
+    else:
+        opener = urllib.request.build_opener()
+        opener.addheaders = [("User-Agent", f"mermaidmro/{__version__}")]
+        urllib.request.install_opener(opener)
+        urllib.request.urlretrieve(url, path)
 
     return path
 
@@ -442,6 +453,10 @@ def main(
         type=shlex.split,
     )
     args = parser.parse_args(cli_args)
+
+    # overwrite the file type when downloading
+    if args.download:
+        args.file_type = os.path.splitext(args.download)[-1].strip(".") or args.file_type
 
     # import the class
     cls = _import_class(args.cls)
