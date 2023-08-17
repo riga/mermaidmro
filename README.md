@@ -82,7 +82,7 @@ This requires that you have a tool installed that lets you visualize images in y
 # shows
 ```
 
-![code:D graph](assets/graph.png)
+![code:D graph](https://media.githubusercontent.com/media/riga/mermaidmro/master/assets/graph.png)
 
 
 ### Download the graph
