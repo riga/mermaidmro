@@ -17,6 +17,40 @@ Create mermaid graphs from the method resolution order (mro) of Python objects.
 
 ## CLI Examples
 
+To see all arguments of the `mermaidmro` executable, run
+
+```shell
+> mermaidmro --help
+
+usage: mermaidmro [-h] [--max-depth VALUE] [--no-mro] [--graph-type GRAPH_TYPE] [--arrow-type ARROW_TYPE] [--cmd CMD] [--edit] [--download PATH]
+                  [--visualize CMD] [--file-type TYPE] [--args ARGS]
+                  cls
+
+visualize class inheritance structures with mermaidjs using the mro
+
+positional arguments:
+  cls                   the root class to visualize in the format 'module.to.import:class'
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --max-depth VALUE, -m VALUE
+                        the maximum depth of the graph; default: -1
+  --no-mro, -n          do not show mro indices
+  --graph-type GRAPH_TYPE, -g GRAPH_TYPE
+                        the graph type; default: 'TD'
+  --arrow-type ARROW_TYPE, -a ARROW_TYPE
+                        the arrow type; default: '-->'
+  --cmd CMD, -c CMD     an executable to open the generated url
+  --edit, -e            whether to open the mermaid live editor instead of a static image when --cmd is set
+  --download PATH, -d PATH
+                        path for downloading the graph file instead
+  --visualize CMD, -v CMD
+                        executable for visualizing the graph from the (temporarily) downloaded file
+  --file-type TYPE, -f TYPE
+                        the file type to open or download; has no effect when --edit is set
+  --args ARGS           additional arguments to be added to the commands given via --cmd or --visualize
+```
+
 For the examples below, let's consider the following classes saved in a file `code.py` that can be imported via `import code` (adjust your `PYTHONPATH` if this is not the case).
 
 ```python
@@ -29,7 +63,7 @@ class B(object):
 class C(A):
     pass
 
-class D(A, B):
+class D(C, B):
     pass
 ```
 
@@ -41,16 +75,36 @@ Simply pass the module and class in the format `module_name:class_name` to `merm
 > mermaidmro code:D
 
 graph TD
-    code.A --> code.D
+    code.D("code.D (0)")
+    code.C("code.C (1)")
+    code.A("code.A (2)")
+    code.B("code.B (3)")
+    object("object (4)")
+
+    code.C --> code.D
     code.B --> code.D
-    object --> code.A
+    code.A --> code.C
     object --> code.B
+    object --> code.A
 ```
 
-You can limit the maximum depth via `--max-depth / -m`.
+You can hide the mro indices by adding `--no-mro / -n`.
 
 ```shell
-> mermaidmro code:D --max-depth 1
+> mermaidmro code:D --no-mro
+
+graph TD
+    code.C --> code.D
+    code.B --> code.D
+    code.A --> code.C
+    object --> code.B
+    object --> code.A
+```
+
+You can also limit the maximum depth via `--max-depth / -m`.
+
+```shell
+> mermaidmro code:D --no-mro --max-depth 1
 
 graph TD
     code.A --> code.D
@@ -66,7 +120,7 @@ This functionality is based on the [mermaid.live](https://mermaid.live) service.
 ```shell
 > mermaidmro code:D --cmd open
 
-# opens https://mermaid.ink/img/pako:eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAApConqOCrq4dhIks7IQhnJ-UlZpcghB2xC7spKSjoJSbWpSbmJkCsrI6RqkkIzU3NQbIiVFKSU1LLM0piVGqVaoFANe4LEk=?type=png
+# opens https://mermaid.ink/img/pako:eNptkM8KwjAMh18l5JSBE_-dPAht9wgec6lbdYrdZNTT2LvbUUvLWE6_fB8kISPWfWPwDPgY9KeFa8Ud-JrptiLGEIB2BWORORWdAtovnIhOAB0WTkYngY7J9beXqZ13IQCdgss3Qlle_oflA9exSFjlKxKW61jgBtCawepnM_9lZHStsYZ9w9iYu_6-HeOE0w_Nr1i5?type=png
 ```
 
 To open the graph in the live editor, add `--edit`.

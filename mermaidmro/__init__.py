@@ -48,9 +48,9 @@ URL_STATIC = "https://mermaid.ink/img/{}?type={}"
 URL_STATIC_JSON = "https://mermaid.ink/img/pako:{}?type={}"
 URL_EDIT_JSON = "https://mermaid.live/edit#pako:{}"
 
-#: Relation between two classes including a depth value with respect to the requested root class.
-#: (namedtuple).
-Relation = collections.namedtuple("Relation", ["cls", "base_cls", "root_depth"])
+#: Relation between two classes including a depth value and the mro index with respect to the
+#: requested root class (namedtuple).
+Relation = collections.namedtuple("Relation", ["cls", "base_cls", "root_cls", "depth", "mro"])
 
 #: Container object with attributes to define css styles for one or multiple classes (namedtuple).
 Style = collections.namedtuple("Style", ["name", "cls", "css"])
@@ -73,6 +73,9 @@ def get_relations(
     if max_depth == 0:
         return []
 
+    # get the mro
+    mro = {cls: i for i, cls in enumerate(root_cls.__mro__)}
+
     # iterate recursively with lookup pattern
     lookup = [(root_cls, 0)]
     seen = set()
@@ -87,7 +90,7 @@ def get_relations(
         # handle base classes
         for base_cls in cls.__bases__:
             # add class relation, starting at depth 1
-            relations.append(Relation(cls, base_cls, depth + 1))
+            relations.append(Relation(cls, base_cls, root_cls, depth + 1, mro.get(base_cls, -1)))
 
             # ammend lookup when depth below maximum
             if max_depth < 0 or depth + 1 < max_depth:
@@ -202,6 +205,7 @@ def get_mermaid_text(
     root_cls: type,
     max_depth: int = -1,
     styles: list[Style | tuple] | None = None,
+    show_mro: bool = True,
     graph_type: str = "TD",
     arrow_type: str = "-->",
     indentation: str = "    ",
@@ -213,27 +217,43 @@ def get_mermaid_text(
     """
     Creates a text representation of the inheritance graph for a *root_cls*, down to a maximum
     recursion depth *max_depth*. When *styles* is given, the representation contains style
-    statements generated via :py:func:`get_style_text`. The type of the graph and style of arrows
-    can be controlled with *graph_type* and *arrow_type*. Example:
+    statements generated via :py:func:`get_style_text`. When *show_mro* is *True*, mro indices with
+    respect to *root_cls* are shown. The type of the graph and style of arrows can be controlled
+    with *graph_type* and *arrow_type*. Example:
 
     .. code-block:: python
 
         class A(object): pass
         class B(object): pass
         class C(A): pass
-        class D(A, B): pass
+        class D(C, B): pass
 
         get_mermaid_text(D)
-
         # graph TD
-        #     A --> D
+        #     D("D (0)")
+        #     C("C (1)")
+        #     A("A (2)")
+        #     B("B (3)")
+        #     object("object (4)")
+        #
+        #     C --> D
         #     B --> D
+        #     A --> C
+        #     object --> A
+        #     object --> B
+
+        get_mermaid_text(D, show_mro=False)
+        # graph TD
+        #     C --> D
+        #     B --> D
+        #     A --> C
         #     object --> A
         #     object --> B
 
     :param root_cls: The root class to use.
     :param max_depth: Maximum recursion depth for the lookup in :py:func:`get_relations`.
     :param styles: Sequence of :py:class:`Style` objects or tuples that can be interpreted as such.
+    :param show_mro: Whether mro indices should be included.
     :param graph_type: The mermaid graph type to use, e.g. ``"TD"`` or ``"LR"``.
     :param arrow_type: The default arrow type to use between classes, e.g. ``"-->"``.
     :param indentation: The indentation of lines.
@@ -249,11 +269,24 @@ def get_mermaid_text(
     if name_func is None:
         name_func = get_default_name_func(skip_modules=skip_modules)
 
+    # get relations
+    relations = get_relations(root_cls, max_depth=max_depth)
+
     # build lines
     lines = [f"graph {graph_type}"]
 
+    # add labels with mro indices
+    if show_mro:
+        mro_label = lambda cls, i: f"{indentation}{name_func(cls)}(\"{name_func(cls)} ({i})\")"
+        mro_pairs = {(root_cls, 0)} | {(rel.base_cls, rel.mro) for rel in relations}
+        lines.extend([
+            mro_label(base_cls, mro)
+            for base_cls, mro in sorted(mro_pairs, key=lambda tpl: tpl[1])
+        ])
+        lines.append("")
+
     # add relations
-    for rel in get_relations(root_cls, max_depth=max_depth):
+    for rel in relations:
         # potentially skip
         if callable(skip_func) and skip_func(rel.base_cls, name_func):
             continue
@@ -325,6 +358,7 @@ def download_graph(
     mermaid_text: str,
     path: str,
     file_type: str = "jpg",
+    theme: str | None = "default",
 ) -> str:
     """
     Downloads a mermaid graph represented by *mermaid_text* from the mermaidjs service to a *path*
@@ -333,6 +367,7 @@ def download_graph(
     :param mermaid_text: The graph as a string representation.
     :param path: The path where the downloaded file should be saved.
     :param file_type: The file type to write, usually ``"jpg"`` or ``"png"``.
+    :param theme: Name of the theme to use.
     :return: The absolute, normalized and expanded path.
     """
     # normalize path
@@ -344,7 +379,7 @@ def download_graph(
         os.makedirs(parent)
 
     # download and write
-    url = URL_STATIC_JSON.format(encode_json(mermaid_text), file_type)
+    url = URL_STATIC_JSON.format(encode_json(mermaid_text, theme=theme), file_type)
     if HAS_REQUESTS:
         with open(path, "wb") as f:
             r = requests.get(url, allow_redirects=True)
@@ -415,6 +450,24 @@ def main(
         default=-1,
     )
     parser.add_argument(
+        "--no-mro",
+        "-n",
+        action="store_true",
+        help="do not show mro indices",
+    )
+    parser.add_argument(
+        "--graph-type",
+        "-g",
+        help="the graph type; default: 'TD'",
+        default="TD",
+    )
+    parser.add_argument(
+        "--arrow-type",
+        "-a",
+        help="the arrow type; default: '-->'",
+        default="-->",
+    )
+    parser.add_argument(
         "--cmd",
         "-c",
         metavar="CMD",
@@ -448,7 +501,6 @@ def main(
     )
     parser.add_argument(
         "--args",
-        "-a",
         help="additional arguments to be added to the commands given via --cmd or --visualize",
         type=shlex.split,
     )
@@ -465,6 +517,9 @@ def main(
     mermaid_text = get_mermaid_text(
         cls,
         max_depth=args.max_depth,
+        show_mro=not args.no_mro,
+        graph_type=args.graph_type.strip(),
+        arrow_type=args.arrow_type.strip(),
     )
 
     # trigger actions
@@ -489,10 +544,11 @@ def main(
 
     if args.cmd:
         # open an url
+        mermaid_json = encode_json(mermaid_text)
         if args.edit:
-            url = URL_EDIT_JSON.format(encode_json(mermaid_text))
+            url = URL_EDIT_JSON.format(mermaid_json)
         else:
-            url = URL_STATIC_JSON.format(encode_json(mermaid_text), args.file_type)
+            url = URL_STATIC_JSON.format(mermaid_json, args.file_type)
 
         # run the command
         cmd = [args.cmd, url] + (args.args or [])

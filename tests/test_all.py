@@ -28,7 +28,7 @@ class B(object): pass  # noqa
 
 class C(A): pass  # noqa
 
-class D(A, B): pass  # noqa
+class D(C, B): pass  # noqa
 
 
 # string representation of the test classes
@@ -36,18 +36,20 @@ test_code = """
 class A(object): pass
 class B(object): pass
 class C(A): pass
-class D(A, B): pass
+class D(C, B): pass
 """
 
 
 class TestCore(unittest.TestCase):
 
     def test_get_relations(self):
+        root_cls = "<class 'tests.test_all.D'>"
         all_relations = (
-            ("<class 'tests.test_all.D'>", "<class 'tests.test_all.A'>", "1"),
-            ("<class 'tests.test_all.D'>", "<class 'tests.test_all.B'>", "1"),
-            ("<class 'tests.test_all.A'>", "<class 'object'>", "2"),
-            ("<class 'tests.test_all.B'>", "<class 'object'>", "2"),
+            ("<class 'tests.test_all.D'>", "<class 'tests.test_all.C'>", root_cls, "1", "1"),
+            ("<class 'tests.test_all.D'>", "<class 'tests.test_all.B'>", root_cls, "1", "3"),
+            ("<class 'tests.test_all.C'>", "<class 'tests.test_all.A'>", root_cls, "2", "2"),
+            ("<class 'tests.test_all.B'>", "<class 'object'>", root_cls, "2", "4"),
+            ("<class 'tests.test_all.A'>", "<class 'object'>", root_cls, "3", "4"),
         )
 
         # full depth
@@ -121,93 +123,119 @@ class TestCore(unittest.TestCase):
         self.assertEqual(
             mm.get_mermaid_text(D),
             """graph TD
-    tests.test_all.A --> tests.test_all.D
+    tests.test_all.D("tests.test_all.D (0)")
+    tests.test_all.C("tests.test_all.C (1)")
+    tests.test_all.A("tests.test_all.A (2)")
+    tests.test_all.B("tests.test_all.B (3)")
+    object("object (4)")
+
+    tests.test_all.C --> tests.test_all.D
     tests.test_all.B --> tests.test_all.D
-    object --> tests.test_all.A
-    object --> tests.test_all.B""",
+    tests.test_all.A --> tests.test_all.C
+    object --> tests.test_all.B
+    object --> tests.test_all.A""",
+        )
+
+        # hidden mro from now onwards
+        get_mermaid_text = functools.partial(mm.get_mermaid_text, show_mro=False)
+        self.assertEqual(
+            get_mermaid_text(D),
+            """graph TD
+    tests.test_all.C --> tests.test_all.D
+    tests.test_all.B --> tests.test_all.D
+    tests.test_all.A --> tests.test_all.C
+    object --> tests.test_all.B
+    object --> tests.test_all.A""",
         )
 
         # unjoined lines
         self.assertEqual(
-            tuple(mm.get_mermaid_text(D, join_lines=False)),
+            tuple(get_mermaid_text(D, join_lines=False)),
             (
                 "graph TD",
-                "    tests.test_all.A --> tests.test_all.D",
+                "    tests.test_all.C --> tests.test_all.D",
                 "    tests.test_all.B --> tests.test_all.D",
-                "    object --> tests.test_all.A",
+                "    tests.test_all.A --> tests.test_all.C",
                 "    object --> tests.test_all.B",
+                "    object --> tests.test_all.A",
             ),
         )
 
         # changed indentation
         self.assertEqual(
-            mm.get_mermaid_text(D, indentation="  "),
+            get_mermaid_text(D, indentation="  "),
             """graph TD
-  tests.test_all.A --> tests.test_all.D
+  tests.test_all.C --> tests.test_all.D
   tests.test_all.B --> tests.test_all.D
-  object --> tests.test_all.A
-  object --> tests.test_all.B""",
+  tests.test_all.A --> tests.test_all.C
+  object --> tests.test_all.B
+  object --> tests.test_all.A""",
         )
 
         # limited depth
         self.assertEqual(
-            mm.get_mermaid_text(D, max_depth=1),
+            get_mermaid_text(D, max_depth=1),
             """graph TD
-    tests.test_all.A --> tests.test_all.D
+    tests.test_all.C --> tests.test_all.D
     tests.test_all.B --> tests.test_all.D""",
         )
 
         # changed graph type
         self.assertEqual(
-            mm.get_mermaid_text(D, graph_type="LR", join_lines=False)[0],
+            get_mermaid_text(D, graph_type="LR", join_lines=False)[0],
             "graph LR",
         )
 
         # changed arrow type
         self.assertEqual(
-            mm.get_mermaid_text(D, arrow_type="--->"),
+            get_mermaid_text(D, arrow_type="--->"),
             """graph TD
-    tests.test_all.A ---> tests.test_all.D
+    tests.test_all.C ---> tests.test_all.D
     tests.test_all.B ---> tests.test_all.D
-    object ---> tests.test_all.A
-    object ---> tests.test_all.B""",
+    tests.test_all.A ---> tests.test_all.C
+    object ---> tests.test_all.B
+    object ---> tests.test_all.A""",
         )
 
         # custom name func
         self.assertEqual(
-            mm.get_mermaid_text(D, skip_modules=["tests.test_all"]),
+            get_mermaid_text(D, skip_modules=["tests.test_all"]),
             """graph TD
-    A --> D
+    C --> D
     B --> D
-    object --> A
-    object --> B""",
+    A --> C
+    object --> B
+    object --> A""",
         )
         self.assertEqual(
-            mm.get_mermaid_text(D, skip_modules=["tests.*"]),
+            get_mermaid_text(D, skip_modules=["tests.*"]),
             """graph TD
-    A --> D
+    C --> D
     B --> D
-    object --> A
-    object --> B""",
+    A --> C
+    object --> B
+    object --> A""",
         )
 
         # skip func
         self.assertEqual(
-            mm.get_mermaid_text(D, skip_func=(lambda cls, name_func: cls == B)),
+            get_mermaid_text(D, skip_func=(lambda cls, name_func: cls == B)),
             """graph TD
-    tests.test_all.A --> tests.test_all.D
-    object --> tests.test_all.A
-    object --> tests.test_all.B""",
+    tests.test_all.C --> tests.test_all.D
+    tests.test_all.A --> tests.test_all.C
+    object --> tests.test_all.B
+    object --> tests.test_all.A""",
         )
 
         # include styles
         self.assertEqual(
-            mm.get_mermaid_text(D, styles=[("Foo", "tests.test_all.D", "stroke: #83b")]),
+            get_mermaid_text(D, styles=[("Foo", "tests.test_all.D", "stroke: #83b")]),
             """graph TD
-    tests.test_all.A --> tests.test_all.D
+    tests.test_all.C --> tests.test_all.D
     tests.test_all.B --> tests.test_all.D
-    object --> tests.test_all.A
+    tests.test_all.A --> tests.test_all.C
     object --> tests.test_all.B
+    object --> tests.test_all.A
 
     classDef Foo stroke: #83b
 
@@ -217,17 +245,21 @@ class TestCore(unittest.TestCase):
     def test_encode_text(self):
         self.assertEqual(
             mm.encode_text(mm.get_mermaid_text(D)),
-            "Z3JhcGggVEQKICAgIHRlc3RzLnRlc3RfYWxsLkEgLS0-IHRlc3RzLnRlc3RfYWxsLkQKICAgIHRlc3RzLnRlc3RfYWxsLkIgLS0-IHRlc3RzLnRlc3RfYWxsLkQKICAgIG9iamVjdCAtLT4gdGVzdHMudGVzdF9hbGwuQQogICAgb2JqZWN0IC0tPiB0ZXN0cy50ZXN0X2FsbC5C",  # noqa
+            "Z3JhcGggVEQKICAgIHRlc3RzLnRlc3RfYWxsLkQoInRlc3RzLnRlc3RfYWxsLkQgKDApIikKICAgIHRlc3RzLnRlc3RfYWxsLkMoInRlc3RzLnRlc3RfYWxsLkMgKDEpIikKICAgIHRlc3RzLnRlc3RfYWxsLkEoInRlc3RzLnRlc3RfYWxsLkEgKDIpIikKICAgIHRlc3RzLnRlc3RfYWxsLkIoInRlc3RzLnRlc3RfYWxsLkIgKDMpIikKICAgIG9iamVjdCgib2JqZWN0ICg0KSIpCgogICAgdGVzdHMudGVzdF9hbGwuQyAtLT4gdGVzdHMudGVzdF9hbGwuRAogICAgdGVzdHMudGVzdF9hbGwuQiAtLT4gdGVzdHMudGVzdF9hbGwuRAogICAgdGVzdHMudGVzdF9hbGwuQSAtLT4gdGVzdHMudGVzdF9hbGwuQwogICAgb2JqZWN0IC0tPiB0ZXN0cy50ZXN0X2FsbC5CCiAgICBvYmplY3QgLS0-IHRlc3RzLnRlc3RfYWxsLkE=",  # noqa
+        )
+        self.assertEqual(
+            mm.encode_text(mm.get_mermaid_text(D, show_mro=False)),
+            "Z3JhcGggVEQKICAgIHRlc3RzLnRlc3RfYWxsLkMgLS0-IHRlc3RzLnRlc3RfYWxsLkQKICAgIHRlc3RzLnRlc3RfYWxsLkIgLS0-IHRlc3RzLnRlc3RfYWxsLkQKICAgIHRlc3RzLnRlc3RfYWxsLkEgLS0-IHRlc3RzLnRlc3RfYWxsLkMKICAgIG9iamVjdCAtLT4gdGVzdHMudGVzdF9hbGwuQgogICAgb2JqZWN0IC0tPiB0ZXN0cy50ZXN0X2FsbC5B",  # noqa
         )
 
     def test_encode_json(self):
         self.assertEqual(
             mm.encode_json(mm.get_mermaid_text(D)),
-            "eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgpLU4pJiPRAZn5iTo-eooKtrhy6IXakTHqX5SVmpySXYFDgSUuCkpKOglJtalJuYmQJybnWMUklGam5qDJATo5SSmpZYmlMSo1SrVAsAknRE_Q==",  # noqa
+            "eNqN0c0OwiAMAOBXaXpiiVv8O3kwAfYIHkkMjuo04MyGp2XvLssOGmHRHgiFL2mhPVaNIdwBXlr9qOFQqjuE8NT5rhjXo7a2KJnC7yNgy0xhlvQy9hLYatbz2HNg61kvYi-Abd6-Od2o8kFNG2Db6S7dLeT5PnpyuvD_lKeo_GwvBcQvwHEB6Kh1-mrGufXhJ2pypEKi0NBZP61XOODwAp_3mpk=",  # noqa
         )
         self.assertEqual(
             mm.encode_json(mm.get_mermaid_text(D), theme="dark"),
-            "eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgpLU4pJiPRAZn5iTo-eooKtrhy6IXakTHqX5SVmpySXYFDgSUuCkpKOglJtalJuYmQJybnWMUklGam5qDJATo5SSWJQdo1SrVAsAw1dDug==",  # noqa
+            "eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgpLU4pJiPRAZn5iTo-eiEaOELqSgYaAZo6SJVb0zpnpnBQ1DnOodMdU7KmgY4VTvhKneSUHDGKE-PykrNbkEqArCUNAwgchhd62Crq4dhpexW0y8UkdsSp2RnYdNgRMhBY5KOgpKualFuYmZKaB4qwaGREZqbmoMkBOjlJJYlB2jVKtUCwDP95lW",  # noqa
         )
 
     def test_download_graph(self):
@@ -286,18 +318,39 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(
                 self.main(["mm_test_module:D"]),
                 """graph TD
-    mm_test_module.A --> mm_test_module.D
+    mm_test_module.D("mm_test_module.D (0)")
+    mm_test_module.C("mm_test_module.C (1)")
+    mm_test_module.A("mm_test_module.A (2)")
+    mm_test_module.B("mm_test_module.B (3)")
+    object("object (4)")
+
+    mm_test_module.C --> mm_test_module.D
     mm_test_module.B --> mm_test_module.D
-    object --> mm_test_module.A
-    object --> mm_test_module.B""",
+    mm_test_module.A --> mm_test_module.C
+    object --> mm_test_module.B
+    object --> mm_test_module.A""",
             )
 
-            # limited depth
+            # hidden mro indices
             self.assertEqual(
-                self.main(["mm_test_module:D", "-m", "1"]),
+                self.main(["mm_test_module:D", "-n"]),
                 """graph TD
-    mm_test_module.A --> mm_test_module.D
-    mm_test_module.B --> mm_test_module.D""",
+    mm_test_module.C --> mm_test_module.D
+    mm_test_module.B --> mm_test_module.D
+    mm_test_module.A --> mm_test_module.C
+    object --> mm_test_module.B
+    object --> mm_test_module.A""",
+            )
+
+            # changed graph and arrow type
+            self.assertEqual(
+                self.main(["mm_test_module:D", "-n", "-g", "LR", "-a", " --->"]),
+                """graph LR
+    mm_test_module.C ---> mm_test_module.D
+    mm_test_module.B ---> mm_test_module.D
+    mm_test_module.A ---> mm_test_module.C
+    object ---> mm_test_module.B
+    object ---> mm_test_module.A""",
             )
 
     def test_visualize(self):
@@ -320,23 +373,23 @@ class TestCLI(unittest.TestCase):
             # default case
             self.assertEqual(
                 " ".join(self.main(["mm_test_module:D", "-c", "open"])),
-                "open https://mermaid.ink/img/pako:eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgtzc-JLU4pL43PyU0pxUPUcFXV07dEHsSp3wKM1PykpNLsGmwJGQAiclHQWl3NSi3MTMFJBzq2OUSjJSc1NjgJwYpZTUtMTSnJIYpVqlWgD6QUXb?type=png",  # noqa
+                "open https://mermaid.ink/img/pako:eNqN0c0KwjAMAOBXCTl14MS_kweh7R7BY2DMNTplXWV2p7F3d7KDYjs0pzT5ICnpsXSGcQ94aYt7BceMGhjD2tzzw-fWma7mZSYIv0sgVglhEvU69BrEetbL0EsQm1mvQq9AbN_enW5c-lFNCYjd1ItvC2l6CL4cH_w_lTGqP9eLAfULSFwAWm5tcTWvu_WEvmLLND4IDZ-LrvaEAw5P5_ec6Q==?type=png",  # noqa
             )
 
             # jpg
             self.assertEqual(
                 " ".join(self.main(["mm_test_module:D", "-c", "open", "-f", "jpg"])),
-                "open https://mermaid.ink/img/pako:eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgtzc-JLU4pL43PyU0pxUPUcFXV07dEHsSp3wKM1PykpNLsGmwJGQAiclHQWl3NSi3MTMFJBzq2OUSjJSc1NjgJwYpZTUtMTSnJIYpVqlWgD6QUXb?type=jpg",  # noqa
+                "open https://mermaid.ink/img/pako:eNqN0c0KwjAMAOBXCTl14MS_kweh7R7BY2DMNTplXWV2p7F3d7KDYjs0pzT5ICnpsXSGcQ94aYt7BceMGhjD2tzzw-fWma7mZSYIv0sgVglhEvU69BrEetbL0EsQm1mvQq9AbN_enW5c-lFNCYjd1ItvC2l6CL4cH_w_lTGqP9eLAfULSFwAWm5tcTWvu_WEvmLLND4IDZ-LrvaEAw5P5_ec6Q==?type=jpg",  # noqa
             )
 
             # edit page
             self.assertEqual(
                 " ".join(self.main(["mm_test_module:D", "-c", "open", "-e"])),
-                "open https://mermaid.live/edit#pako:eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgtzc-JLU4pL43PyU0pxUPUcFXV07dEHsSp3wKM1PykpNLsGmwJGQAiclHQWl3NSi3MTMFJBzq2OUSjJSc1NjgJwYpZTUtMTSnJIYpVqlWgD6QUXb",  # noqa
+                "open https://mermaid.live/edit#pako:eNqN0c0KwjAMAOBXCTl14MS_kweh7R7BY2DMNTplXWV2p7F3d7KDYjs0pzT5ICnpsXSGcQ94aYt7BceMGhjD2tzzw-fWma7mZSYIv0sgVglhEvU69BrEetbL0EsQm1mvQq9AbN_enW5c-lFNCYjd1ItvC2l6CL4cH_w_lTGqP9eLAfULSFwAWm5tcTWvu_WEvmLLND4IDZ-LrvaEAw5P5_ec6Q==",  # noqa
             )
 
             # additional args
             self.assertEqual(
-                " ".join(self.main(["mm_test_module:D", "-c", "open", "-a", "foo bar"])),
-                "open https://mermaid.ink/img/pako:eNqrVkrOT0lVslJQSi9KLMhQCHGJyVMAgtzc-JLU4pL43PyU0pxUPUcFXV07dEHsSp3wKM1PykpNLsGmwJGQAiclHQWl3NSi3MTMFJBzq2OUSjJSc1NjgJwYpZTUtMTSnJIYpVqlWgD6QUXb?type=png foo bar",  # noqa
+                " ".join(self.main(["mm_test_module:D", "-c", "open", "--args", "foo bar"])),
+                "open https://mermaid.ink/img/pako:eNqN0c0KwjAMAOBXCTl14MS_kweh7R7BY2DMNTplXWV2p7F3d7KDYjs0pzT5ICnpsXSGcQ94aYt7BceMGhjD2tzzw-fWma7mZSYIv0sgVglhEvU69BrEetbL0EsQm1mvQq9AbN_enW5c-lFNCYjd1ItvC2l6CL4cH_w_lTGqP9eLAfULSFwAWm5tcTWvu_WEvmLLND4IDZ-LrvaEAw5P5_ec6Q==?type=png foo bar",  # noqa
             )
