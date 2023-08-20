@@ -20,6 +20,8 @@ Create mermaid graphs from the method resolution order (mro) of Python objects.
 For the examples below, let's consider the following classes saved in a file `code.py` that can be imported via `import code` (adjust your `PYTHONPATH` if this is not the case).
 
 ```python
+# code.py
+
 class A(object):
     pass
 
