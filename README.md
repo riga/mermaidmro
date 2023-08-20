@@ -17,40 +17,6 @@ Create mermaid graphs from the method resolution order (mro) of Python objects.
 
 ## CLI Examples
 
-To see all arguments of the `mermaidmro` executable, run
-
-```shell
-> mermaidmro --help
-
-usage: mermaidmro [-h] [--max-depth VALUE] [--no-mro] [--graph-type GRAPH_TYPE] [--arrow-type ARROW_TYPE] [--cmd CMD] [--edit] [--download PATH]
-                  [--visualize CMD] [--file-type TYPE] [--args ARGS]
-                  cls
-
-visualize class inheritance structures with mermaidjs using the mro
-
-positional arguments:
-  cls                   the root class to visualize in the format 'module.to.import:class'
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --max-depth VALUE, -m VALUE
-                        the maximum depth of the graph; default: -1
-  --no-mro, -n          do not show mro indices
-  --graph-type GRAPH_TYPE, -g GRAPH_TYPE
-                        the graph type; default: 'TD'
-  --arrow-type ARROW_TYPE, -a ARROW_TYPE
-                        the arrow type; default: '-->'
-  --cmd CMD, -c CMD     an executable to open the generated url
-  --edit, -e            whether to open the mermaid live editor instead of a static image when --cmd is set
-  --download PATH, -d PATH
-                        path for downloading the graph file instead
-  --visualize CMD, -v CMD
-                        executable for visualizing the graph from the (temporarily) downloaded file
-  --file-type TYPE, -f TYPE
-                        the file type to open or download; has no effect when --edit is set
-  --args ARGS           additional arguments to be added to the commands given via --cmd or --visualize
-```
-
 For the examples below, let's consider the following classes saved in a file `code.py` that can be imported via `import code` (adjust your `PYTHONPATH` if this is not the case).
 
 ```python
