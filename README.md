@@ -4,7 +4,7 @@
 
 [![Build status](https://github.com/riga/mermaidmro/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/riga/mermaidmro/actions/workflows/lint_and_test.yml)
 [![Package version](https://img.shields.io/pypi/v/mermaidmro.svg?style=flat)](https://pypi.python.org/pypi/mermaidmro)
-[![Python version](https://img.shields.io/badge/Python-%E2%89%A53.6-blue)](https://pypi.python.org/pypi/mermaidmro)
+[![Python version](https://img.shields.io/badge/Python-%E2%89%A53.7-blue)](https://pypi.python.org/pypi/mermaidmro)
 [![Documentation status](https://readthedocs.org/projects/mermaidmro/badge/?version=latest)](http://mermaidmro.readthedocs.io)
 [![Code coverge](https://codecov.io/gh/riga/mermaidmro/graph/badge.svg?token=UAKGC13BVI)](https://codecov.io/gh/riga/mermaidmro)
 [![License](https://img.shields.io/github/license/riga/mermaidmro.svg)](https://github.com/riga/mermaidmro/blob/master/LICENSE)
