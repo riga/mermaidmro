@@ -30,7 +30,7 @@ except ModuleNotFoundError:
     HAS_REQUESTS = False
 
 # package infos
-from mermaidmro.__version__ import (
+from mermaidmro.__meta__ import (
     __doc__,
     __author__,
     __email__,
