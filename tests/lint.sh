@@ -2,7 +2,7 @@
 
 # Script to run linting checks.
 # Arguments:
-#   1. The linting command. Defaults to "flake8 mermaidmro setup.py docs/_scripts/*".
+#   1. The linting command. Defaults to "flake8 mermaidmro tests".
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
