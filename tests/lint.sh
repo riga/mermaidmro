@@ -11,7 +11,7 @@ action() {
     local repo_dir="$( dirname "${this_dir}" )"
 
     # default test command
-    local cmd="${1:-flake8 mermaidmro setup.py tests}"
+    local cmd="${1:-flake8 mermaidmro tests}"
 
     # execute it
     echo "command: ${cmd}"
