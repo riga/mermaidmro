@@ -1,5 +1,4 @@
 # coding: utf-8
-# flake8: noqa
 
 from __future__ import annotations
 
@@ -30,7 +29,7 @@ except ModuleNotFoundError:
     HAS_REQUESTS = False
 
 # package infos
-from mermaidmro.__meta__ import (
+from mermaidmro.__meta__ import (  # noqa
     __doc__,
     __author__,
     __email__,
