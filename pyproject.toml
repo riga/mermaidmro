@@ -53,6 +53,11 @@ dependencies = {file = ["requirements.txt"]}
 optional-dependencies = {dev = {file = ["requirements_dev.txt"]}}
 
 
+[project.scripts]
+
+mermaidmro = "mermaidmro:main"
+
+
 [tool.setuptools]
 
 include-package-data = false
